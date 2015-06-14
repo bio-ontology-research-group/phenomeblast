@@ -39,16 +39,6 @@ GAction rooting = new GAction(GActionType.REROOTING);
 rooting.addParameter("root_uri", virtualRoot.stringValue());
 GraphActionExecutor.applyAction(factory, rooting, graph);
 
-// remove all instances
-Set removeE = new LinkedHashSet()
-graph.getE().each { it ->
-  String es = it.toString();
-  if ( es.indexOf("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")>-1 ) {
-    removeE.add( it );
-  }
-}               
-removeE.each { graph.removeE(it) }
-
 def instances = new LinkedHashSet()
 // adding instances
 new File("gene_association.ecocyc").splitEachLine("\t") { line ->
