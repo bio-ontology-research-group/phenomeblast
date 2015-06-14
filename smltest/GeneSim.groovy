@@ -39,19 +39,21 @@ GAction rooting = new GAction(GActionType.REROOTING);
 rooting.addParameter("root_uri", virtualRoot.stringValue());
 GraphActionExecutor.applyAction(factory, rooting, graph);
 
-def instances = new LinkedHashSet()
 // adding instances
 new File("gene_association.ecocyc").splitEachLine("\t") { line ->
   if (!line[0].startsWith("!")) {
-    def id = line[1]
+    def id = "UNIPROT:"+line[1]
     def iduri = factory.createURI(URI+id)
     def mp = line[4]?.trim()
-    mp = mp?.replaceAll(":","_")
-    def mpuri = factory.createURI("http://purl.obolibrary.org/obo/"+mp)
-    instances.add(mpuri)
-    if (mp && id && iduri && mpuri && mp.length()>0 && id.length()>0) {
-      Edge e = new Edge(iduri, RDF.TYPE, mpuri);
-      graph.addE(e)
+    mp = mp?.replaceAll("GO:","")
+    def mpuri = factory.createURI(URI+mp)
+    if (graph.containsVertex(mpuri)) {
+      if (mp && id && iduri && mpuri && mp.length()>0 && id.length()>0) {
+	Edge e = new Edge(iduri, RDF.TYPE, mpuri);
+	graph.addE(e)
+      }
+    } else {
+      println "Mismatch: $mpuri"
     }
   }
 }
@@ -61,6 +63,8 @@ SMconf smConfGroupwise = new SMconf("SimGIC", SMConstants.FLAG_SIM_GROUPWISE_DAG
 smConfGroupwise.setICconf(icConf)
 
 SM_Engine engine = new SM_Engine(graph)
+
+//println engine.getClasses()
 
 println "Computing similarity..."
 InstancesAccessor ia = new InstanceAccessor_RDF_TYPE(graph)
