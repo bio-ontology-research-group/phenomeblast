@@ -23,8 +23,7 @@ import org.semanticweb.owlapi.search.*;
 import org.semanticweb.owlapi.manchestersyntax.renderer.*;
 import org.semanticweb.owlapi.reasoner.structural.*
 
-
-def fout = new PrintWriter(new BufferedWriter(new FileWriter("fishies.txt")))
+def fout = new PrintWriter(new BufferedWriter(new FileWriter("go-to-pheno.txt")))
 
 OWLOntologyManager manager = OWLManager.createOWLOntologyManager()
 def ontset = new TreeSet()
@@ -185,15 +184,6 @@ String formatClassNames(String s) {
   s=s.replace("_",":")
   s
 }
-def id2name = [:]
-outont.getClassesInSignature(true).each { cl ->
-  EntitySearcher.getAnnotationObjects(cl, outont, fac.getRDFSLabel()).each { lab ->
-    if (lab.getValue() instanceof OWLLiteral) {
-      def labs = (OWLLiteral) lab.getValue()
-      id2name[cl] = labs.getLiteral()
-    }
-  }
-}
 def id2class = [:] // maps a name to an OWLClass
 ont.getClassesInSignature(true).each {
   def aa = it.toString()
@@ -203,7 +193,12 @@ ont.getClassesInSignature(true).each {
     id2class[aa] = it
   }
 }
-
+def id2name = [:]
+ont.getClassesInSignature(true).each { cl ->
+  EntitySearcher.getAnnotationObjects(cl, ont, fac.getRDFSLabel()).each { lab ->
+    id2name[cl] = lab.getValue().asLiteral()
+  }
+}
 def addAnno = {resource, prop, cont ->
   //  OWLAnnotation anno = fac.getOWLAnnotation(fac.getOWLAnnotationProperty(prop.getIRI()), fac.getOWLLiteral(cont))
   def axiom = fac.getOWLAnnotationAssertionAxiom(fac.getOWLAnnotationProperty(prop.getIRI()), resource.getIRI(), cont)
@@ -317,216 +312,7 @@ ont.getClassesInSignature(true).each { cl ->
     exp.hasquality = hasquality
     exp.centralparticipant = centralparticipant
     exp.resultsfrom = resultsfrom
-
     map[cl] = exp
-    /*
-    println "Class $cl:"
-    println "\tE: $e"
-    println "\tE2: $e2"
-    println "\tQ: $q"
-    println "\tIPO: $ihp"
-    println "\tMod: $modifier"
-    println "\tOcc: $occursin"
-    println "\tHP: $haspart"
-    println "\tduring: $during"
-    println "\thas-quality: $hasquality"
-    println "\tcentral-participant: $centralparticipant"
-    println "\tresults-from: $resultsfrom"
-    */
+    fout.println(exp)
   }
 }
-
-def done = new HashSet()
-def counter = 0
-
-/* Do fishy mapping stuff */
-def zfa2uberon = [:]
-def oid = ""
-new File("uberon_edit.obo").eachLine { line ->
-  if (line.startsWith("id:")) {
-    oid = line.substring(3).trim()
-    if (oid.indexOf("!")>-1) {
-      oid = oid.substring(0,oid.indexOf("!"))?.replaceAll("!","")?.trim()
-    }
-  }
-  if (line.startsWith("xref: ZFA")) {
-    def xref = line.substring(5).trim()
-    if (xref.indexOf("!")>-1) {
-      xref = xref.substring(0,xref.indexOf("!"))?.replaceAll("!","")?.trim()
-    }
-    def cl1 = fac.getOWLClass(IRI.create("http://purl.obolibrary.org/obo/"+(oid.replaceAll(":","_"))))
-    def cl2 = fac.getOWLClass(IRI.create("http://purl.obolibrary.org/obo/"+(xref.replaceAll(":","_"))))
-    manager.addAxiom(outont, equiv(cl1, cl2))
-    //    zfa2uberon[xref] = oid
-  }
-}
-
-ManchesterOWLSyntaxOWLObjectRendererImpl rendering = new ManchesterOWLSyntaxOWLObjectRendererImpl()
-rendering.setShortFormProvider(new AnnotationValueShortFormProvider([fac.getRDFSLabel()], [:], manager))
-
-def edoneq = [:].withDefault { new HashSet() }
-def e2q2cl = [:].withDefault { new LinkedHashSet() }
-new File("modelphenotypes/phenoGeneCleanData_fish.txt").splitEachLine("\t") { line ->
-  def e = line[7]
-  def q = line[9]?.replaceAll(":","_")
-  def po = null
-  def rel = null
-  if (line[3] && line[5]) {
-    po = line[3]
-    rel = line[5]?.replaceAll(":","_")
-  }
-  e = e.replaceAll(":","_")
-  po = po?.replaceAll(":","_")
-  e = fac.getOWLClass(IRI.create("http://purl.obolibrary.org/obo/"+e))
-  if (po && rel) {
-    po = fac.getOWLClass(IRI.create("http://purl.obolibrary.org/obo/"+po))
-    rel = fac.getOWLObjectProperty(IRI.create("http://purl.obolibrary.org/obo/"+rel))
-  }
-  q = fac.getOWLClass(IRI.create("http://purl.obolibrary.org/obo/"+q))
-  def str = "$rel$po$e$q"
-  if (e && q) {
-    def qq = and(id2class["PATO:0000001"], some(R("has-modifier"),fac.getOWLClass(IRI.create("http://purl.obolibrary.org/obo/PATO_0000460"))))
-    if (! (e in done)) {
-      manager.addAxiom(outont, equiv(C("PHENO:$counter"), some(R("has-part"),and(some(R("part-of"),e), some(R("has-quality"),qq)))))
-      def an = fac.getOWLAnnotation(fac.getRDFSLabel(), fac.getOWLLiteral("Phenotypic abnormality of "+rendering.render(e).replace("\n"," ")))
-      def axiom = fac.getOWLAnnotationAssertionAxiom(C("PHENO:$counter").getIRI(), an)
-      manager.addAxiom(outont,axiom)
-      done.add(e)
-      counter += 1
-    }
-    if (po && rel) {
-      e = and(po, some(rel, e))
-      if (! (e in done)) {
-	manager.addAxiom(outont, equiv(C("PHENO:$counter"), some(R("has-part"),and(some(R("part-of"),e), some(R("has-quality"),qq)))))
-	def an = fac.getOWLAnnotation(fac.getRDFSLabel(), fac.getOWLLiteral("Phenotypic abnormality of "+rendering.render(e).replace("\n"," ")))
-	def axiom = fac.getOWLAnnotationAssertionAxiom(C("PHENO:$counter").getIRI(), an)
-	manager.addAxiom(outont,axiom)
-	done.add(e)
-	counter += 1
-      }
-    }
-    if (!e2q2cl[str] ) {
-      qq = and(q, some(R("has-modifier"),fac.getOWLClass(IRI.create("http://purl.obolibrary.org/obo/PATO_0000460"))))
-      edoneq[e].add(q)
-      e2q2cl[str] = C("PHENO:$counter")
-      manager.addAxiom(outont, equiv(C("PHENO:$counter"), some(R("has-part"),and(e, some(R("has-quality"),qq)))))
-      def an = fac.getOWLAnnotation(fac.getRDFSLabel(), fac.getOWLLiteral(rendering.render(e).replace("\n"," ")+" "+rendering.render(q)))
-      def axiom = fac.getOWLAnnotationAssertionAxiom(C("PHENO:$counter").getIRI(), an)
-      manager.addAxiom(outont,axiom)
-      q = and(q, some(R("has-modifier"),fac.getOWLClass(IRI.create("http://purl.obolibrary.org/obo/PATO_0000460"))))
-      counter += 1
-    }
-    def fcl = e2q2cl[str]
-    line.each { fout.print(it+"\t") }
-    fout.println(fcl)
-  }
-}
-
-
-/* create structuring classes */
-map.each { cl, exp ->
-  exp.e.each { e ->
-    if (e && ! (e in done)) {
-      def qq = and(id2class["PATO:0000001"], some(R("has-modifier"),fac.getOWLClass(IRI.create("http://purl.obolibrary.org/obo/PATO_0000460"))))
-      manager.addAxiom(outont, equiv(C("PHENO:$counter"), some(R("has-part"),and(some(R("part-of"),e), some(R("has-quality"),qq)))))
-      if (id2name[e]) {
-       	println "Adding annotation to $e"
-	def an = fac.getOWLAnnotation(fac.getRDFSLabel(), fac.getOWLLiteral("Phenotypic abnormality of "+id2name[e]))
-	def axiom = fac.getOWLAnnotationAssertionAxiom(C("PHENO:$counter").getIRI(), an)
-	manager.addAxiom(outont,axiom)
-      } else {
-	def an = fac.getOWLAnnotation(fac.getRDFSLabel(), fac.getOWLLiteral("Phenotypic abnormality of "+rendering.render(e).replace("\n"," ")))
-	def axiom = fac.getOWLAnnotationAssertionAxiom(C("PHENO:$counter").getIRI(), an)
-	manager.addAxiom(outont,axiom)
-      }
-      counter += 1
-      done.add(e)
-    }
-  }
-}
-map.each { cl, exp ->
-  def temp = fac.getOWLThing()
-  if (exp.hp.size()>0) {  // just intersect
-    exp.hp.each { p ->
-      temp = and(temp, p)
-    }
-    manager.addAxiom(outont, equiv(cl, temp))
-  } else if (exp.e.size()==0 && exp.q.size()==0) {
-
-  } else {
-    def e = null
-    // initialize e
-    // intersect multiple entities, otherwise use the E field
-    if (exp.e.size()>1) {
-      e = and(exp.e[0],exp.e[1])
-    } else if (exp.e.size() == 1) {
-      e = exp.e[0]
-    } else {
-      e = fac.getOWLThing() // default entity, does no harm
-    }
-    
-    // if ihp not empty, intersect e with "part-of some P"
-    exp.ihp.each { p ->
-      e = and(e, some(R("part-of"),p))
-    }
-    exp.resultsfrom.each { p ->
-      e = and(e, some(R("results-from"),p))
-    }
-    exp.during.each { p ->
-      e = and(e, some(R("during"), p))
-    }
-    exp.hasquality.each { p ->
-      e = and(e, some(R("has-quality"), p))
-    }
-    exp.centralparticipant.each { p ->
-      e = and(e, some(R("has-central-participant"), p))
-    }
-    exp.occ.each { p ->
-      e = and(e, some(R("occurs-in"), p))
-    }
-    exp.e2.each { p ->
-      e = and(e, some(R("towards"), p))
-    }
-
-    // Now do quality
-    def q = id2class["PATO:0000001"]
-    if (exp.q.size()>1) {
-      q = and(exp.q[0], exp.q[1])
-    } else if (exp.q.size()== 1) {
-      q = exp.q[0]
-    }
-    exp.mod.each { p ->
-      q = and(q, some(R("has-modifier"),p))
-    }
-
-    // Now add the axiom
-    manager.addAxiom(outont, equiv(cl,some(R("has-part"),and(e, some(R("has-quality"),q)))))
-  }
-}
-
-manager.addAxiom(outont, fac.getOWLTransitiveObjectPropertyAxiom(R("has-part")))
-manager.addAxiom(outont, fac.getOWLTransitiveObjectPropertyAxiom(R("part-of")))
-manager.addAxiom(outont, fac.getOWLReflexiveObjectPropertyAxiom(R("has-part")))
-manager.addAxiom(outont, fac.getOWLReflexiveObjectPropertyAxiom(R("part-of")))
-
-// OWLImportsDeclaration importDecl1 = fac.getOWLImportsDeclaration(IRI.create("http://purl.obolibrary.org/obo/uberon.owl"))
-// manager.applyChange(new AddImport(outont, importDecl1))
-
-//importDecl1 = fac.getOWLImportsDeclaration(IRI.create("http://purl.obolibrary.org/obo/pato.owl"))
-//manager.applyChange(new AddImport(outont, importDecl1))
-//importDecl1 = fac.getOWLImportsDeclaration(IRI.create("http://purl.obolibrary.org/obo/go.owl"))
-//manager.applyChange(new AddImport(outont, importDecl1))
-importDecl1 = fac.getOWLImportsDeclaration(IRI.create("http://purl.obolibrary.org/obo/chebi.owl"))
-manager.applyChange(new AddImport(outont, importDecl1))
-//importDecl1 = fac.getOWLImportsDeclaration(IRI.create("http://purl.obolibrary.org/obo/pr.owl"))
-//manager.applyChange(new AddImport(outont, importDecl1))
-// importDecl1 = fac.getOWLImportsDeclaration(IRI.create("http://purl.obolibrary.org/obo/cl.owl"))
-// manager.applyChange(new AddImport(outont, importDecl1))
-//importDecl1 = fac.getOWLImportsDeclaration(IRI.create("http://purl.obolibrary.org/obo/nbo.owl"))
-//manager.applyChange(new AddImport(outont, importDecl1))
-importDecl1 = fac.getOWLImportsDeclaration(IRI.create("http://purl.obolibrary.org/obo/mpath.owl"))
-manager.applyChange(new AddImport(outont, importDecl1))
-
-
-
-manager.saveOntology(outont, IRI.create("file:/tmp/a-with-names.owl"))

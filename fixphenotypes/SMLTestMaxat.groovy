@@ -1,5 +1,5 @@
 @Grab(group='com.github.sharispe', module='slib-sml', version='0.9.1')
-@Grab(group='org.codehaus.gpars', module='gpars', version='1.1.0')
+//@Grab(group='org.codehaus.gpars', module='gpars', version='1.1.0')
 
 import java.net.*
 import org.openrdf.model.vocabulary.*
@@ -22,7 +22,7 @@ import slib.graph.algo.extraction.rvf.instances.impl.*
 import slib.graph.model.impl.repo.*
 import slib.graph.io.util.*
 import slib.graph.io.loader.*
-import groovyx.gpars.GParsPool
+			  //import groovyx.gpars.GParsPool
 
 
 def fout = new PrintWriter(new BufferedWriter(new FileWriter("phenosim-matrix.txt")))
@@ -48,7 +48,7 @@ rooting.addParameter("root_uri", virtualRoot.stringValue());
 //println graph.getE()
 
 def mgimap = [:]
-new File("diseasephenotypes.txt").splitEachLine("\t") { line ->
+new File("modelphenotypes.txt").splitEachLine("\t") { line ->
   def id = URLEncoder.encode(line[0])
   def iduri = factory.getURI(URI+id)
   def pheno = line[1]?.replaceAll(":","_")
@@ -68,33 +68,13 @@ SM_Engine engine = new SM_Engine(graph)
 
 def id2gene = [:]
 def map = [:].withDefault { new LinkedHashSet() }
-new File("modelphenotypes.txt").splitEachLine("\t") { line ->
-  def id = line[0]
-  def pheno = line[1]
-  def gene = line[2]
-  id2gene[id] = gene
-  if (pheno.startsWith("HP") || pheno.startsWith("MP")) {
-    pheno = pheno.replaceAll("HP:","http://purl.obolibrary.org/obo/HP_")
-    pheno = pheno.replaceAll("MP:","http://purl.obolibrary.org/obo/MP_")
-  }
-  if (pheno.startsWith("http")) {
-    def p = factory.getURI(pheno)
-    if (graph.containsVertex(p)) {
-      map[id].add(p)
-    }
-  }
-}
 
-//def set1 = hpomap["OMIM:101600"].collect { factory.getURI(it.replaceAll("HP:","http://purl.obolibrary.org/obo/HP_")) } as Set
-GParsPool.withPool {
-  map.eachParallel { id, phenoset ->
-    println "Model: "+id
-    engine.getInstances().each { dis ->
-      def set2 = ia.getDirectClass(dis)
-      if (set2) {
-	fout.println("$id\t"+id2gene[id]+"\t$dis\t"+engine.compare(smConfGroupwise, smConfPairwise, phenoset, set2))
-      }
-    }
+def phenoset = args[0].split(",") // or something like that; need to make these URIs; look above :)
+
+engine.getInstances().each { gene ->
+  def set2 = ia.getDirectClass(gene)
+  if (set2) {
+    fout.println("$id\t"+id2gene[id]+"\t$dis\t"+engine.compare(smConfGroupwise, smConfPairwise, phenoset, set2))
   }
 }
 

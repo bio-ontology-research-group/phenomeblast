@@ -25,16 +25,43 @@ import org.semanticweb.owlapi.search.*;
 import org.semanticweb.owlapi.manchestersyntax.renderer.*;
 import org.semanticweb.owlapi.reasoner.structural.*
 
-OWLOntologyManager manager = OWLManager.createOWLOntologyManager()
+// OWLOntologyManager manager = OWLManager.createOWLOntologyManager()
 
-OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("a-inferred.owl"))
+// OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("a-inferred.owl"))
 
-OWLDataFactory fac = manager.getOWLDataFactory()
-ConsoleProgressMonitor progressMonitor = new ConsoleProgressMonitor()
-OWLReasonerConfiguration config = new SimpleConfiguration(progressMonitor)
-ElkReasonerFactory f1 = new ElkReasonerFactory()
-OWLReasoner reasoner = f1.createReasoner(ont,config)
-reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY)
+// OWLDataFactory fac = manager.getOWLDataFactory()
+// ConsoleProgressMonitor progressMonitor = new ConsoleProgressMonitor()
+// OWLReasonerConfiguration config = new SimpleConfiguration(progressMonitor)
+// ElkReasonerFactory f1 = new ElkReasonerFactory()
+// OWLReasoner reasoner = f1.createReasoner(ont,config)
+// reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY)
+
+// def R = { String s ->
+//   if (s == "part-of") {
+//     fac.getOWLObjectProperty(IRI.create("http://purl.obolibrary.org/obo/BFO_0000050"))
+//   } else if (s == "has-part") {
+//     fac.getOWLObjectProperty(IRI.create("http://purl.obolibrary.org/obo/BFO_0000051"))
+//   } else {
+//     fac.getOWLObjectProperty(IRI.create("http://aber-owl.net/#"+s))
+//   }
+// }
+
+// def C = { String s ->
+//   fac.getOWLClass(IRI.create(onturi+s))
+// }
+
+// def and = { cl1, cl2 ->
+//   fac.getOWLObjectIntersectionOf(cl1,cl2)
+// }
+// def some = { r, cl ->
+//   fac.getOWLObjectSomeValuesFrom(r,cl)
+// }
+// def equiv = { cl1, cl2 ->
+//   fac.getOWLEquivalentClassesAxiom(cl1, cl2)
+// }
+// def subclass = { cl1, cl2 ->
+//   fac.getOWLSubClassOfAxiom(cl1, cl2)
+// }
 
 
 
@@ -60,6 +87,7 @@ new File("diseasephenotypes/phenotype_annotation.tab").splitEachLine("\t") { lin
   }
 }
 
+/* Pinky and the Brain */
 def id2markers = [:].withDefault { new TreeSet() }
 new File("modelphenotypes/MGI_PhenoGenoMP.rpt").splitEachLine("\t") { line ->
   def id = "AllelicComposition: "+line[0]+"; Strain: "+line[2]
@@ -74,64 +102,23 @@ new File("modelphenotypes/HMD_HumanPhenotype.rpt").splitEachLine("\t") { line ->
   id2geneid[id].add("ENTREZ:"+(line[1]?.trim()))
 }
 
-def R = { String s ->
-  if (s == "part-of") {
-    fac.getOWLObjectProperty(IRI.create("http://purl.obolibrary.org/obo/BFO_0000050"))
-  } else if (s == "has-part") {
-    fac.getOWLObjectProperty(IRI.create("http://purl.obolibrary.org/obo/BFO_0000051"))
-  } else {
-    fac.getOWLObjectProperty(IRI.create("http://aber-owl.net/#"+s))
-  }
-}
-
-def C = { String s ->
-  fac.getOWLClass(IRI.create(onturi+s))
-}
-
-def and = { cl1, cl2 ->
-  fac.getOWLObjectIntersectionOf(cl1,cl2)
-}
-def some = { r, cl ->
-  fac.getOWLObjectSomeValuesFrom(r,cl)
-}
-def equiv = { cl1, cl2 ->
-  fac.getOWLEquivalentClassesAxiom(cl1, cl2)
-}
-def subclass = { cl1, cl2 ->
-  fac.getOWLSubClassOfAxiom(cl1, cl2)
-}
 
 // do the fish *blub* *blub*
-new File("modelphenotypes/phenoGeneCleanData_fish.txt").splitEachLine("\t") { line ->
-  def id = line[18]
-  id2geneid[id].add(line[0])
-  id2geneid[id].add(line[1])
-  id2geneid[id].add(line[2])
-  def e = line[7]
-  def q = line[9]?.replaceAll(":","_")
-  def po = null
-  def rel = null
-  if (line[3] && line[5]) {
-    po = line[3]
-    rel = line[5]?.replaceAll(":","_")
-  }
-  e = e.replaceAll(":","_")
-  po = po?.replaceAll(":","_")
-  e = fac.getOWLClass(IRI.create("http://purl.obolibrary.org/obo/"+e))
-  if (po && rel) {
-    po = fac.getOWLClass(IRI.create("http://purl.obolibrary.org/obo/"+po))
-    rel = fac.getOWLObjectProperty(IRI.create("http://purl.obolibrary.org/obo/"+rel))
-  }
-  q = fac.getOWLClass(IRI.create("http://purl.obolibrary.org/obo/"+q))
-  if (e && q) {
-    if (po && rel) {
-      e = and(po, some(rel, e))
-    }
-    def anno = reasoner.getEquivalentClasses(some(R("has-part"),and(e, some(R("has-quality"),q)))).getRepresentativeElement()?.toString()?.replaceAll("<","")?.replaceAll(">","")
-    map[id].add(anno)
-  }
+new File("modelphenotypes/ortho_2015.12.16.txt").splitEachLine("\t") { line ->
+  def id = line[0]
+  def hid = "ENTREZ:"+line[4]
+  id2geneid[id].add(hid)
+  id2geneid[id].add(line[3])
 }
 
+new File("fishies.txt").splitEachLine("\t") { line ->
+  def id = line[18]
+  def gid = line[2]
+  id2geneid[id].add(gid)
+  def pheno = line[-1]?.replaceAll(">","")?.replaceAll("<","")?.trim()
+  map[id].add(pheno)
+  id2markers[id].add(gid)
+}
 
 map.each { k, v ->
   def l = new TreeSet()
