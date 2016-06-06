@@ -31,6 +31,8 @@ def ontset = new TreeSet()
 def o1 = manager.loadOntologyFromOntologyDocument(new File("mp.owl"))
 ontset.add(o1)
 ontset.add(manager.loadOntologyFromOntologyDocument(new File("hp.owl")))
+ontset.add(manager.loadOntologyFromOntologyDocument(new File("ordo_orphanet.owl")))
+ontset.add(manager.loadOntologyFromOntologyDocument(new File("doid.owl")))
 OWLOntology ont = manager.createOntology(IRI.create("http://aber-owl.net/phenotype-input.owl"), ontset)
 
 OWLOntology outont = manager.createOntology(IRI.create("http://aber-owl.net/phenotype.owl"))
@@ -547,6 +549,22 @@ an = fac.getOWLAnnotation(fac.getRDFSLabel(), fac.getOWLLiteral("part-of"))
 axiom = fac.getOWLAnnotationAssertionAxiom(R("part-of").getIRI(), an)
 manager.addAxiom(outont,axiom)
 
+
+/* Add mappings generated through third parties (AML, etc)*/
+new File("mappings").eachFile { file ->
+  file.splitEachLine("\t") { line ->
+    if (!line[0].startsWith("#") && !line[0].startsWith("Source")) {
+      def iri1 = fac.getOWLClass(IRI.create(line[0]))
+      def iri2 = fac.getOWLClass(IRI.create(line[2]))
+      def score = new Double(line[4])
+      if (score >= 0.70) {
+	manager.addAxiom(outont, equiv(iri1, iri2))
+      }
+    }
+  }
+}
+
+
 // OWLImportsDeclaration importDecl1 = fac.getOWLImportsDeclaration(IRI.create("http://purl.obolibrary.org/obo/uberon.owl"))
 // manager.applyChange(new AddImport(outont, importDecl1))
 
@@ -567,4 +585,4 @@ manager.applyChange(new AddImport(outont, importDecl1))
 
 
 
-manager.saveOntology(outont, IRI.create("file:/tmp/a-with-names.owl"))
+manager.saveOntology(outont, IRI.create("file:/tmp/a-ordo-do.owl"))
