@@ -1,9 +1,9 @@
 @Grapes([
           @Grab(group='org.semanticweb.elk', module='elk-owlapi', version='0.4.2'),
-          @Grab(group='net.sourceforge.owlapi', module='owlapi-api', version='4.2.5'),
-          @Grab(group='net.sourceforge.owlapi', module='owlapi-apibinding', version='4.2.5'),
-          @Grab(group='net.sourceforge.owlapi', module='owlapi-impl', version='4.2.5'),
-          @Grab(group='net.sourceforge.owlapi', module='owlapi-parsers', version='4.2.5'),
+          @Grab(group='net.sourceforge.owlapi', module='owlapi-api', version='4.2.6'),
+          @Grab(group='net.sourceforge.owlapi', module='owlapi-apibinding', version='4.2.6'),
+          @Grab(group='net.sourceforge.owlapi', module='owlapi-impl', version='4.2.6'),
+          @Grab(group='net.sourceforge.owlapi', module='owlapi-parsers', version='4.2.6'),
           @GrabConfig(systemClassLoader=true)
         ])
 

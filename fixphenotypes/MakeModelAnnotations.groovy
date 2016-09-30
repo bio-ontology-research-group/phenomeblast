@@ -73,8 +73,8 @@ new File("omim/mim2gene.txt").splitEachLine("\t") { line ->
     def id = "OMIM:"+line[0]
     omimphenotypes.add(id)
     id2geneid[id].add("ENTREZ:"+line[2])
-    id2geneid[id].add(line[3])
-    id2geneid[id].add(line[4])
+    //    id2geneid[id].add(line[3])
+    //    id2geneid[id].add(line[4])
   }
 }
 
@@ -98,7 +98,7 @@ new File("modelphenotypes/MGI_PhenoGenoMP.rpt").splitEachLine("\t") { line ->
 }
 new File("modelphenotypes/HMD_HumanPhenotype.rpt").splitEachLine("\t") { line ->
   def id = line[4]?.trim()
-  id2geneid[id].add(line[0]?.trim())
+  //  id2geneid[id].add(line[0]?.trim())
   id2geneid[id].add("ENTREZ:"+(line[1]?.trim()))
 }
 
@@ -108,7 +108,7 @@ new File("modelphenotypes/ortho_2015.12.16.txt").splitEachLine("\t") { line ->
   def id = line[0]
   def hid = "ENTREZ:"+line[4]
   id2geneid[id].add(hid)
-  id2geneid[id].add(line[3])
+  //  id2geneid[id].add(line[3])
 }
 
 new File("fishies.txt").splitEachLine("\t") { line ->
@@ -128,8 +128,9 @@ map.each { k, v ->
   v.each {
     if (l.size()>0) {
       println "$k\t$it\t"+l
-    } else {
-      println "$k\t$it\t"+id2geneid[k]
     }
+    //    else {
+    //      println "$k\t$it\t"+id2geneid[k]
+    //    }
   }
 }
