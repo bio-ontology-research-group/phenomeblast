@@ -1,4 +1,7 @@
-import slib.sglib.model.impl.graph.elements.Edge
+@Grab(group='com.github.sharispe', module='slib-sml', version='0.9.1')
+@Grab(group='org.codehaus.gpars', module='gpars', version='1.2.0')
+
+/*import slib.sglib.model.impl.graph.elements.Edge
 import org.openrdf.model.vocabulary.*
 import slib.sglib.io.conf.GDataConf
 import slib.sglib.io.loader.*
@@ -17,13 +20,41 @@ import slib.sglib.algo.graph.extraction.rvf.instances.InstancesAccessor
 import slib.sglib.algo.graph.extraction.rvf.instances.impl.InstanceAccessor_RDF_TYPE
 import slib.sglib.algo.graph.utils.*
 import slib.utils.impl.Timer
+*/
+import java.net.*
+import org.openrdf.model.vocabulary.*
+import slib.sglib.io.loader.*
+import slib.sml.sm.core.metrics.ic.utils.*
+import slib.sml.sm.core.utils.*
+import slib.sglib.io.loader.bio.obo.*
+import org.openrdf.model.URI
+import slib.graph.algo.extraction.rvf.instances.*
+import slib.sglib.algo.graph.utils.*
+import slib.utils.impl.Timer
+import slib.graph.algo.extraction.utils.*
+import slib.graph.model.graph.*
+import slib.graph.model.repo.*
+import slib.graph.model.impl.graph.memory.*
+import slib.sml.sm.core.engine.*
+import slib.graph.io.conf.*
+import slib.graph.model.impl.graph.elements.*
+import slib.graph.algo.extraction.rvf.instances.impl.*
+import slib.graph.model.impl.repo.*
+import slib.graph.io.util.*
+import slib.graph.io.loader.*
+import slib.graph.algo.extraction.rvf.DescendantEngine;
+import slib.graph.algo.accessor.GraphAccessor;
+import groovyx.gpars.ParallelEnhancer
+import groovyx.gpars.GParsPool
+
+System.setProperty("jdk.xml.entityExpansionLimit", "0")
+System.setProperty("jdk.xml.totalEntitySizeLimit", "0");
 
 def cli = new CliBuilder()
 cli.with {
 usage: 'Self'
   h longOpt:'help', 'this information'
   i longOpt:'input-file', 'disease definitions input file', args:1, required:true
-  p longOpt:'positive-file', 'file with true positive associations', args:1, required:true
   o longOpt:'output', 'output file', args:1, required:true
   //  "1" longOpt:'pmi', 'min PMI', args:1, required:true
   //  "2" longOpt:'lmi', 'min LMI', args:1, required:true
@@ -39,24 +70,23 @@ if( opt.h ) {
     return
 }
 
-//def minpmi = new Double(opt."1")
-//def minlmi = new Double(opt."2")
-
-def mpfile = new File("mousephenotypes.txt")
+def mpfile = new File("/home/kafkass/Projects/phenomeblast/fixphenotypes/mousephenotypes.txt")
 def disfile = new File(opt.i)
 
 def fout = new PrintWriter(new BufferedWriter(new FileWriter(opt.o)))
 
-def URI = "http://phenomebrowser.net/smltest/"
+String uri = "http://phenomebrowser.net/smltest/"
+
 URIFactory factory = URIFactoryMemory.getSingleton()
-URI graph_uri = factory.createURI(URI)
+
+URI graph_uri = factory.getURI(uri)
 //factory.loadNamespacePrefix("HP", graph_uri.toString())
 G graph = new GraphMemory(graph_uri)
 
-GDataConf graphconf = new GDataConf(GFormat.RDF_XML, "monarch/monarch-inferred.owl")
+GDataConf graphconf = new GDataConf(GFormat.RDF_XML, "/home/kafkass/Projects/Pathogen_Disease/a-inferred.owl")
 GraphLoaderGeneric.populate(graphconf, graph)
 
-URI virtualRoot = factory.createURI("http://phenomebrowser.net/smltest/virtualRoot");
+URI virtualRoot = factory.getURI("http://purl.obolibrary.org/obo/virtualRoot");
 graph.addV(virtualRoot);
         
 // We root the graphs using the virtual root as root
@@ -74,80 +104,66 @@ graph.getE().each { it ->
 }               
 removeE.each { graph.removeE(it) }
 
-println "Reading eval dataset..."
-def omimset = new LinkedHashSet()
-def mgiset = new LinkedHashSet()
-new File(opt.p).splitEachLine("\t") { line ->
-  omimset.add(line[0])
-  mgiset.add(line[1])
-}
-
 // adding instances
 mpfile.splitEachLine("\t") { line ->
   def id = line[0]
-  if (id in mgiset) {
-    def iduri = factory.createURI(URI+id)
+
+    def iduri = factory.getURI(uri+id)
     def mp = line[1]?.trim()
     mp = mp?.replaceAll(":","_")
-    def mpuri = factory.createURI("http://purl.obolibrary.org/obo/"+mp)
+    def mpuri = factory.getURI("http://purl.obolibrary.org/obo/"+mp)
     if (mp && id && iduri && mpuri && mp.length()>0 && id.length()>0) {
       Edge e = new Edge(iduri, RDF.TYPE, mpuri);
       graph.addE(e)
     }
-  }
-}
-
-ICconf icConf = new IC_Conf_Corpus("Resnik", SMConstants.FLAG_IC_ANNOT_RESNIK_1995)
-SMconf smConfGroupwise = new SMconf("SimGIC", SMConstants.FLAG_SIM_GROUPWISE_DAG_GIC)
-smConfGroupwise.setICconf(icConf)
-
-SM_Engine engine = new SM_Engine(graph)
-
-// find DO->OMIM mappings
-def doid2omim = [:].withDefault { new TreeSet() }
-def oid = ""
-new File("HumanDO.obo").eachLine { line ->
-  if (line.startsWith("id:")) {
-    oid = line.substring(4).trim()
-  }
-  if (line.startsWith("xref: OMIM")) {
-    def omim = line.substring(6).trim()
-    doid2omim[oid].add(omim)
-  }
 }
 
 println "Reading disease file..."
 def map = [:].withDefault { new LinkedHashSet() }
 disfile.splitEachLine("\t") { line ->
   def doid = line[0]
-  if (doid2omim[doid] && doid2omim[doid].size()>0) { // ******* only analyze the diseases with OMIM mapping
+  
     def pid = line[1]
     //    if (pmi > minpmi && lmi > minlmi) { // ******************* Adjust scores here!
     pid = pid?.replaceAll(":","_")?.trim()
     if (pid && pid.length()>0) {
-      def piduri = factory.createURI("http://purl.obolibrary.org/obo/"+pid)
+      def piduri = factory.getURI("http://purl.obolibrary.org/obo/"+pid)
       if (graph.containsVertex(piduri)) {
 	map[doid].add(piduri)
       }
     }
     //    }
-  }
+  
 }
+
+
+ICconf icConf = new IC_Conf_Corpus("Resnik", SMConstants.FLAG_IC_ANNOT_RESNIK_1995)
+SMconf smConfGroupwise = new SMconf("BMA", SMConstants.FLAG_SIM_GROUPWISE_BMA);
+SMconf smConfPairwise = new SMconf("Resnik", SMConstants.FLAG_SIM_PAIRWISE_DAG_NODE_RESNIK_1995 );
+
+smConfPairwise.setICconf(icConf)
+
+SM_Engine engine = new SM_Engine(graph)
 
 println "Computing similarity..."
 InstancesAccessor ia = new InstanceAccessor_RDF_TYPE(graph)
 
-map.each { doid, phenos ->
-  if (doid2omim[doid].intersect(omimset).size()>0) {
+GParsPool.withPool {
+  map.eachParallel { doid, phenos ->
     if (phenos.size() > 0) {
       println "Processing $doid..."
       engine.getInstances().each { mgi ->
-	Set mgiSet = ia.getDirectClass(mgi)
-	def sim = engine.computeGroupwiseStandaloneSim(smConfGroupwise, phenos, mgiSet)
+       Set mgiSet = ia.getDirectClass(mgi)
+    if (mgiSet.size()>0){//	println "mgiSet" + mgiSet
+                        //     println "phenome" + phenos
+	try {
+	def sim = engine.compare(smConfGroupwise, smConfPairwise, phenos, mgiSet)
 	fout.println("$doid\t$mgi\t$sim")
+	} catch (Exception e) {}        
+}
       }
-    }
   }
+}
 }
 fout.flush()
 fout.close()
