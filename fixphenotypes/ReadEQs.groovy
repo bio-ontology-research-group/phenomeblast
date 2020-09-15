@@ -1,9 +1,9 @@
 @Grapes([
-          @Grab(group='org.semanticweb.elk', module='elk-owlapi', version='0.4.2'),
-          @Grab(group='net.sourceforge.owlapi', module='owlapi-api', version='4.2.6'),
-          @Grab(group='net.sourceforge.owlapi', module='owlapi-apibinding', version='4.2.6'),
-          @Grab(group='net.sourceforge.owlapi', module='owlapi-impl', version='4.2.6'),
-          @Grab(group='net.sourceforge.owlapi', module='owlapi-parsers', version='4.2.6'),
+          @Grab(group='org.semanticweb.elk', module='elk-owlapi', version='0.4.3'),
+          @Grab(group='net.sourceforge.owlapi', module='owlapi-api', version='4.5.17'),
+          @Grab(group='net.sourceforge.owlapi', module='owlapi-apibinding', version='4.5.17'),
+          @Grab(group='net.sourceforge.owlapi', module='owlapi-impl', version='4.5.17'),
+          @Grab(group='net.sourceforge.owlapi', module='owlapi-parsers', version='4.5.17'),
           @GrabConfig(systemClassLoader=true)
         ])
 
@@ -348,7 +348,7 @@ def counter = 0
 /* Do fishy mapping stuff */
 def zfa2uberon = [:]
 def oid = ""
-new File("uberon_edit.obo").eachLine { line ->
+new File("uberon.obo").eachLine { line ->
   if (line.startsWith("id:")) {
     oid = line.substring(3).trim()
     if (oid.indexOf("!")>-1) {
